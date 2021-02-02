@@ -37,7 +37,7 @@ async def on_command_error(ctx, error):
 
 @bot.command(help='Return the name of my creator.')
 async def credits(ctx):
-    await ctx.send(f'Made by `Dizzy`.')
+    await ctx.send(f'Made by `Dizzy#9551`.')
 
 
 @bot.command()
