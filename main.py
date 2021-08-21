@@ -1,19 +1,34 @@
 import discord
 from discord.ext import commands, tasks
-import secret
-from random import randint, choice
-import youtube_dl
+
+from dotenv import load_dotenv
 import os
+
+from random import randint, choice
+
+import youtube_dl
+
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+
 from datetime import datetime
+from time import sleep
+
+load_dotenv()
+
+TOKEN = os.getenv('TOKEN')
 
 hello_list = ['Hello, {}! How are you?', 'Heeey, {}! How are you doing?', "What's up, {}?     :)", 'Hi there, {}!',
               'Yooo! Sup, {}?', 'Hi, {}! How is it going?', 'Hey, {} from across the street. Lemme hold a dollar.',
               'Hey, {}. Nice to see you!       :D', 'Howdy, {}!']
 
-status = ['Eating bacon.', 'I lost The Game!', 'Flying Spaghetti Monster is real!', '!help']
+
+status = ['Eating bacon.', 'I lost The Game!', 'Flying Spaghetti Monster is real!', 'Iä! Iä! Cthulhu fhtagn!', '!help',
+          'Yamete Kudasai!']
 
 intents = discord.Intents.default()
 intents.members = True
+
 bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
 
 
@@ -21,7 +36,6 @@ bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
 async def on_ready():
     print('Logged in as: {0.user}'.format(bot))
     await change_status.start()
-
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -48,16 +62,20 @@ async def help(ctx):
     embed.add_field(name='!clear', value='Delete the last 10 messages. You can specify how many messages you want '
                                          'delete. For example: !clear 5', inline=False)
     embed.add_field(name='!credits', value='Return the name of my creator.', inline=False)
-    embed.add_field(name='!help', value='Show all the commands.', inline=False)
+    embed.add_field(name='!cthulhu', value='Iä! Iä! Cthulhu fhtagn!', inline=False)
     embed.add_field(name='!hello', value='Say types of hello.', inline=False)
-    embed.add_field(name='!server', value='Return the name of the server.', inline=False)
+    embed.add_field(name='!help', value='Show all the commands.', inline=False)
     embed.add_field(name='!join or !j', value='Join a voice channel.', inline=False)
     embed.add_field(name='!leave or !l', value='Leave a voice channel.', inline=False)
-    embed.add_field(name='!play or !p', value='Join a voice channel and play the url. To search on youtube, '
-                                        'use !play ytsearch:YOUR SEARCH HERE', inline=False)
+    embed.add_field(name='!naruto', value="Try it!   (:", inline=False)
     embed.add_field(name='!pause', value='Pause the music that is currently playing.', inline=False)
+    embed.add_field(name='!play or !p', value='Join a voice channel and play the url.', inline=False)
     embed.add_field(name='!resume', value='Resume the music that is paused.', inline=False)
+    embed.add_field(name='!server', value='Return the name of the server.', inline=False)
+    embed.add_field(name='!shutup', value='Stop the !naruto command.', inline=False)
     embed.add_field(name='!stop', value='Stop playing the music.', inline=False)
+    embed.add_field(name='!tracking', value="Track order via Correios.", inline=False)
+    embed.add_field(name='!yamete', value='Yamete Kudasai!', inline=False)
 
     await ctx.send(embed=embed)
 
@@ -117,9 +135,12 @@ async def join(ctx):
             await connected.channel.connect()
         else:
             await ctx.channel.send('You need to be connected on a voice channel.')
+
     except discord.errors.ClientException:
         await leave(ctx)
+
         connected = ctx.author.voice
+
         await connected.channel.connect()
 
 
@@ -138,10 +159,9 @@ async def leave(ctx):
 
 
 @bot.command(aliases=['p'])
-async def play(ctx, url: str):
+async def play(ctx, *, url: str):
     """
     Join a voice channel and play the url.
-    To search on youtube, use !play ytsearch:YOUR SEARCH HERE
     :param ctx: Context
     :param url: Youtube URL
     """
@@ -168,11 +188,12 @@ async def play(ctx, url: str):
         }]
     }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        ydl.download(['ytsearch:' + url])
 
     for file in os.listdir('./'):
         if file.endswith('.mp3'):
             os.rename(file, 'song.mp3')
+            
     voice.play(discord.FFmpegPCMAudio('song.mp3'))
 
 
@@ -215,9 +236,80 @@ async def stop(ctx):
     voice.stop()
 
 
+@bot.command()
+async def tracking(ctx, cod):
+    url = f'https://www.linkcorreios.com.br/?id={cod}'
+
+    html = urlopen(url)
+
+    bs = BeautifulSoup(html, 'html.parser')
+
+    linhas = bs.find_all('div', {'class':'card-header'})
+
+    result = []
+
+    for i in linhas:
+        temp = i.text.replace('\n\n\n\n', '\n\n')
+        
+        result.append(temp)
+        
+        await ctx.send(result[0])
+
+
+@bot.command()
+async def cthulhu(ctx):
+    '''
+    Iä! Iä! Cthulhu fhtagn!
+    :param ctx: Context
+    '''
+
+    await join(ctx)
+
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+
+    voice.play(discord.FFmpegPCMAudio('sounds_commands/cthulhu.mp3'))
+
+
+@bot.command()
+async def yamete(ctx):
+    '''
+    Yamete Kudasai!
+    :param ctx: Context
+    '''
+
+    await join(ctx)
+
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+
+    voice.play(discord.FFmpegPCMAudio('sounds_commands/yamete_kudasai.mp3'))
+
+
+flag = True
+
+@bot.command()
+async def naruto(ctx):
+    global flag
+    flag = True 
+
+    with open('naruto.txt', 'r') as f:
+        for line in f:
+            if line != '\n' and flag:
+                await ctx.send(line)
+                sleep(1)
+        
+        flag = False
+
+
+@bot.command()
+async def shutup(ctx):
+    global flag
+    flag = False
+
+
 @tasks.loop(seconds=30)
 async def change_status():
     await bot.change_presence(activity=discord.Game(choice(status)))
 
 
-bot.run(secret.token)
+if __name__ == '__main__':
+    bot.run(TOKEN)
